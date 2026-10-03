@@ -1,25 +1,26 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
+import { connectDB } from "@/lib/mongodb";
+import Project from "@/app/models/Project";
+
 import ProjectForm from "@/app/components/ProjectForm";
 import ProjectCard from "@/app/components/ProjectCard";
 
 async function getProjects() {
-  const response = await fetch("http://localhost:3000/api/projects", {
-    cache: "no-store",
-  });
+  await connectDB();
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch projects");
-  }
+  const projects = await Project.find()
+    .sort({ createdAt: -1 })
+    .lean();
 
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.message || "Failed to fetch projects");
-  }
-
-  return data;
+  return projects.map((project) => ({
+    _id: project._id.toString(),
+    title: project.title,
+    description: project.description,
+    category: project.category,
+    image: project.image || "",
+  }));
 }
 
 export default async function AdminProjects() {
@@ -29,7 +30,7 @@ export default async function AdminProjects() {
     redirect("/login");
   }
 
-  const data = await getProjects();
+  const projects = await getProjects();
 
   return (
     <main className="px-6 py-20">
@@ -77,21 +78,22 @@ export default async function AdminProjects() {
             </h2>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {data.projects.map(
-              (project: {
-                _id: string;
-                title: string;
-                description: string;
-                category: string;
-              }) => (
+          {projects.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+              <p className="text-slate-500">
+                No projects available yet.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {projects.map((project) => (
                 <ProjectCard
                   key={project._id}
                   project={project}
                 />
-              )
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
       </div>
